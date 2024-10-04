@@ -94,10 +94,13 @@ function parse_opts() {
     .option("-d, --dataset_dir <dataset_dir>", "The directory of dataset")
     .option("-ad, --allow_duplicate", "Allow duplicate prompts")
     // model 可以选择 flux sd15 sdxl
-    .option("-m, --model <model>", "The model to generate dataset", "sd15");
+    .option("-m, --model <model>", "The model to generate dataset", "sd15")
+    // 移除 negative
+    .option("-nn, --no_negative", "Remove negative prompts", false);
   program.parse(process.argv);
 
-  const { list_file, dataset_dir, allow_duplicate, model } = program.opts();
+  const { list_file, dataset_dir, allow_duplicate, model, no_negative } =
+    program.opts();
   if (!list_file) {
     console.error("Please specify the list of prompts to generate dataset");
     process.exit(1);
@@ -119,6 +122,13 @@ function parse_opts() {
     dataset_dir,
     allow_duplicate,
     model,
+    no_negative,
+  } as {
+    list_file: string;
+    dataset_dir: string;
+    allow_duplicate: boolean;
+    model: string;
+    no_negative: boolean;
   };
 }
 
@@ -130,7 +140,8 @@ function parse_opts() {
  * main.js --list_file "prompts.jsonl" --dataset_dir "./dataset1"
  */
 async function main() {
-  const { list_file, dataset_dir, allow_duplicate, model } = parse_opts();
+  const { list_file, dataset_dir, allow_duplicate, model, no_negative } =
+    parse_opts();
 
   const list_data = await load_list(list_file);
   console.log(`Loaded ${list_data.length} prompts from ${list_file}`);
@@ -146,10 +157,17 @@ async function main() {
     `load dataset from ${dataset_dir}, found ${dataset1.handler.length} items`
   );
   const history_prompts = dataset1.get_all_prompts();
-  const prompts = list_data.filter((p) => {
-    if (allow_duplicate) return true;
-    return !history_prompts.includes(p.prompt ?? p.t5_text ?? p.clip_text);
-  });
+  const prompts = list_data
+    .filter((p) => {
+      if (allow_duplicate) return true;
+      return !history_prompts.includes(p.prompt ?? p.t5_text ?? p.clip_text);
+    })
+    .map((p) => {
+      if (no_negative) {
+        p.negative = "";
+      }
+      return p;
+    });
 
   const service =
     {
