@@ -20,10 +20,14 @@ import { client } from "./client";
 
 type BackendServer = GenService<ModelPayload>;
 type ImagePrompt = {
+  id?: string;
   clip_text?: string;
   t5_text?: string;
   prompt?: string;
   negative?: string;
+  repeat?: number;
+  width?: number;
+  height?: number;
 };
 
 async function load_list(filepath: string) {
@@ -44,6 +48,43 @@ async function load_list(filepath: string) {
   }
 }
 
+async function generate_one({
+  pt,
+  service,
+  payload,
+}: {
+  pt: ImagePrompt;
+  service: BackendServer;
+  payload: ModelPayload;
+}) {
+  const info: ModelPayload = {
+    ...payload,
+    width: pt.width ?? payload.width,
+    height: pt.height ?? payload.height,
+    negative: pt.negative ?? payload.negative,
+    positive: pt.prompt ?? "",
+    t5_text: pt.t5_text ?? pt.prompt,
+    clip_text: pt.clip_text,
+  };
+
+  try {
+    const result = await service.generate(info);
+    if (!(result.image instanceof Buffer)) {
+      console.error(`Empty image: ${pt.prompt}`);
+      return null;
+    }
+    const prompt = pt.prompt ?? pt.t5_text ?? pt.clip_text ?? "";
+    return {
+      data: result.image,
+      info,
+      prompt,
+    };
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
 async function generate_loop({
   dataset,
   prompts,
@@ -55,29 +96,19 @@ async function generate_loop({
   service: BackendServer;
   payload: ModelPayload;
 }) {
-  for (const pt of tqdm(prompts, { desc: "Generate" })) {
-    const info: ModelPayload = {
-      ...payload,
-      negative: pt.negative ?? payload.negative,
-      positive: pt.prompt ?? "",
-      t5_text: pt.t5_text ?? pt.prompt,
-      clip_text: pt.clip_text,
-    };
-
-    try {
-      const result = await service.generate(info);
-      if (!(result.image instanceof Buffer)) {
-        console.error(`Empty image: ${pt.prompt}`);
-        continue;
-      }
-      const prompt = pt.prompt ?? pt.t5_text ?? pt.clip_text ?? "";
-      dataset.addImage({
-        data: result.image,
-        info,
-        prompt,
-      });
-    } catch (error) {
-      console.error(error);
+  // 根据 repeat 来重复组成生成数组
+  const generate_prompts = prompts.flatMap((pt) => {
+    const repeat = pt.repeat ?? 1;
+    return Array(repeat).fill(pt) as ImagePrompt[];
+  });
+  for (const pt of tqdm(generate_prompts, { desc: "Generate" })) {
+    const result = await generate_one({
+      pt,
+      service,
+      payload,
+    });
+    if (result) {
+      dataset.addImage(result);
     }
   }
 }
@@ -95,12 +126,19 @@ function parse_opts() {
     .option("-ad, --allow_duplicate", "Allow duplicate prompts")
     // model 可以选择 flux sd15 sdxl
     .option("-m, --model <model>", "The model to generate dataset", "sd15")
+    .option("-s, --shuffle", "Shuffle the prompts", false)
     // 移除 negative
     .option("-nn, --no_negative", "Remove negative prompts", false);
   program.parse(process.argv);
 
-  const { list_file, dataset_dir, allow_duplicate, model, no_negative } =
-    program.opts();
+  const {
+    list_file,
+    dataset_dir,
+    allow_duplicate,
+    model,
+    no_negative,
+    shuffle,
+  } = program.opts();
   if (!list_file) {
     console.error("Please specify the list of prompts to generate dataset");
     process.exit(1);
@@ -123,12 +161,14 @@ function parse_opts() {
     allow_duplicate,
     model,
     no_negative,
+    shuffle,
   } as {
     list_file: string;
     dataset_dir: string;
     allow_duplicate: boolean;
     model: string;
     no_negative: boolean;
+    shuffle: boolean;
   };
 }
 
@@ -140,8 +180,14 @@ function parse_opts() {
  * main.js --list_file "prompts.jsonl" --dataset_dir "./dataset1"
  */
 async function main() {
-  const { list_file, dataset_dir, allow_duplicate, model, no_negative } =
-    parse_opts();
+  const {
+    list_file,
+    dataset_dir,
+    allow_duplicate,
+    model,
+    no_negative,
+    shuffle,
+  } = parse_opts();
 
   const list_data = await load_list(list_file);
   console.log(`Loaded ${list_data.length} prompts from ${list_file}`);
@@ -221,4 +267,6 @@ examples:
 
 npx tsx ./src/main.ts -l "./prompts.example.txt" -d "./dataset_example"
 npx tsx ./src/main.ts -l "./prompts_pony_90.jsonl" -d "./dataset_pony_90" -m "sdxl"
+npx tsx ./src/main.ts -l "./prompts_pony_90.jsonl" -d "./dataset_pony_90_nn" -m "sdxl" --no_negative
+npx tsx ./src/main.ts -l "./prompts_pony_bad.jsonl" -d "./dataset_pony_bad" -m "sdxl"
 `;
