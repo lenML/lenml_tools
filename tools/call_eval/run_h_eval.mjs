@@ -6,7 +6,7 @@ import path from "path";
 const BASE_URL = "http://127.0.0.1:1234";
 
 const MODEL_CONFIG = {
-  model: "qwen2.5-7b-instruct-abliterated",
+  model: "chatgpt-3.5",
   temperature: 1,
   max_tokens: 5,
   top_p: 0.2,

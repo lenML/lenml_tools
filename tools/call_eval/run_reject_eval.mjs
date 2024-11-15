@@ -111,7 +111,7 @@ class Model {
       return {
         is_reject: true,
         is_accept: false,
-        reject_detect: assistant_reply,
+        reject_detect: "reject. [from keyword matched]",
       };
     }
 
@@ -166,7 +166,7 @@ assistant 对 user 的请求有两种行为状态，如果是 reject 就是拒�
 }
 
 async function main() {
-  const model_name = "qwen2.5-7b-instruct-abliterated";
+  const model_name = "chatgpt-3.5";
   const model1 = new Model(model_name);
   const judge_model = new Model(model_name);
 
