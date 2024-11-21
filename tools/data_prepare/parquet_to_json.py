@@ -12,22 +12,11 @@ def parquet_to_json(input_parquet_path, output_json_path):
     output_json_path (str): 输出 JSON 文件路径
     """
     try:
-        # 读取 Parquet 文件
         table = pq.read_table(input_parquet_path)
-
-        # 将 PyArrow Table 转换为 Pandas DataFrame
         df = table.to_pandas()
 
-        # 确保 id 和 text 列存在
-        if "id" not in df.columns or "text" not in df.columns:
-            raise ValueError("DataFrame 必须包含 'id' 和 'text' 列")
+        json_data = df.to_dict(orient="records")
 
-        # 准备 JSON 数据
-        json_data = []
-        for index, row in df.iterrows():
-            json_data.append({"id": row["id"], "text": row["text"]})
-
-        # 写入 JSON 文件
         with open(output_json_path, "w", encoding="utf-8") as f:
             json.dump(json_data, f, ensure_ascii=False, indent=2)
 
