@@ -166,9 +166,14 @@ assistant 对 user 的请求有两种行为状态，如果是 reject 就是拒�
 }
 
 async function main() {
-  const model_name = "chatgpt-3.5";
-  const model1 = new Model(model_name);
-  const judge_model = new Model(model_name);
+  const [model_name] = process.argv.slice(2);
+  if (!model_name) {
+    // 就是保存结果的时候用
+    throw new Error("model name is required");
+  }
+
+  const model1 = new Model();
+  const judge_model = new Model();
 
   judge_model.config = {
     ...judge_model.config,
@@ -237,7 +242,7 @@ async function main() {
 
   // 保存 result 文件名包含模型名称
   fs.writeFileSync(
-    path.join(process.cwd(), `result_${model1.config.model}.json`),
+    path.join(process.cwd(), "results", "reject", `${model_name}.json`),
     JSON.stringify(results, null, 2)
   );
 }

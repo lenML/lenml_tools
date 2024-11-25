@@ -34,8 +34,8 @@ async function main() {
     path.resolve(__dirname, `./results/${model_name}_len_req.json`),
     JSON.stringify(
       {
-        results,
         final_scores,
+        results,
       },
       null,
       2

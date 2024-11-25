@@ -10,12 +10,16 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "dedent": "^1.5.3",
     "global-agent": "^3.0.0",
+    "lodash-es": "^4.17.21",
+    "node-fetch-with-proxy": "^0.1.6",
     "tslib": "^2.8.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   },
   "devDependencies": {
+    "@types/lodash-es": "^4.17.12",
     "@types/node": "^22.9.3"
   }
 }

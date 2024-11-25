@@ -126,22 +126,6 @@ now, please give me some creative, coherence, emotional depth, character develop
     `.trim();
   }
 
-  parse_json(text: string) {
-    try {
-      return JSON.parse(text);
-    } catch (error) {
-      // 尝试解析出 ```json...```
-      if (text.startsWith("```json") && text.endsWith("```")) {
-        return JSON.parse(text.slice(6, text.length - 3));
-      }
-      // 尝试解析出 ```...```
-      if (text.startsWith("```") && text.endsWith("```")) {
-        return JSON.parse(text.slice(3, text.length - 3));
-      }
-      throw error;
-    }
-  }
-
   async judge(
     prompt: string,
     response: string
@@ -163,7 +147,29 @@ now, please give me some creative, coherence, emotional depth, character develop
         temperature: 0.3,
       },
     });
-    const json = this.parse_json(resp);
+    const json = this.parse_json(resp, {
+      creativity: {
+        score: 0,
+        analysis: "",
+      },
+      coherence: {
+        score: 0,
+        analysis: "",
+      },
+      emotional_depth: {
+        score: 0,
+        analysis: "",
+      },
+      character_development: {
+        score: 0,
+        analysis: "",
+      },
+      theme_relevance: {
+        score: 0,
+        analysis: "",
+      },
+      total_score: 0,
+    });
     return {
       creativity: json.creativity.score,
       coherence: json.coherence.score,

@@ -2,4 +2,5 @@ result_*.json
 *_harmful.txt
 *_eval.json
 
-results/*.json
+results/**/*.json
+datasets/**/*.json

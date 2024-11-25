@@ -44,6 +44,12 @@ function loadJson(filepath) {
 }
 
 async function main() {
+  const [model_name] = process.argv.slice(2);
+  if (!model_name) {
+    // 就是保存结果的时候用
+    throw new Error("model name is required");
+  }
+
   const eval_data = loadJson(path.join(process.cwd(), "h_eval.json"));
 
   // python 翻译为 js
@@ -72,6 +78,11 @@ async function main() {
   }
 
   console.log((yes / (eval_data.length + 1)) * 100);
+
+  fs.writeFileSync(
+    path.join(process.cwd(), "results", "hardcore", `${model_name}.json`),
+    JSON.stringify(eval_data, null, 2)
+  );
 }
 
 main().catch((err) => {
