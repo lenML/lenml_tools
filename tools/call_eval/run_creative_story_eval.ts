@@ -1,23 +1,23 @@
+import "./preload";
+
 import fs from "fs";
 import path from "path";
 
 import { CreativeStoryEvaluator } from "./components/evaluators/creative_story";
 import { Model } from "./components/model";
 import { story_testcases } from "./components/testcases/story";
-
-const BASE_URL = "http://127.0.0.1:1234";
+import { current_model, program_options } from "./args";
 
 async function main() {
-  const [model_name] = process.argv.slice(2);
-  if (!model_name) {
-    // 就是保存结果的时候用
-    throw new Error("model name is required");
+  const results_filepath = path.resolve(
+    __dirname,
+    `./results/creative/${program_options.name}.json`
+  );
+  if (fs.existsSync(results_filepath)) {
+    console.log(`Results file exists: ${results_filepath}`);
+    process.exit(0);
   }
-
-  const model = new Model({
-    BASE_URL,
-    temperature: 0.5,
-  });
+  const model = current_model;
   const evaluator = new CreativeStoryEvaluator(model);
 
   const results = await evaluator.evaluate(story_testcases);
@@ -31,7 +31,7 @@ async function main() {
   };
 
   fs.writeFileSync(
-    path.resolve(__dirname, `./results/${model_name}_len_req.json`),
+    results_filepath,
     JSON.stringify(
       {
         final_scores,

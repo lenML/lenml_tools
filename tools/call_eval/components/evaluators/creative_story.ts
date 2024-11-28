@@ -52,6 +52,7 @@ export class CreativeStoryEvaluator extends BaseEvaluator<Item> {
           system_prompt: this.SYSTEM_PROMPT,
           config: {
             max_tokens: 4096,
+            temperature: 0.5,
           },
         });
         const scores = await this.long_judger.judge(

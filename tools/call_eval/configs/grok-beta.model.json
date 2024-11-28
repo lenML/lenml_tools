@@ -1,0 +1,14 @@
+{
+  "model": "grok-beta",
+  "BASE_URL": "https://api.x.ai",
+  "API_KEY": {
+    "from_env": "XAI_API_KEY"
+  },
+  "support_schema": false,
+  "request_limiter": {
+    "rps": 1,
+    "rpm": 60,
+    "rph": 1200,
+    "rpd": 28800
+  }
+}

@@ -1,30 +1,106 @@
 process.env["NO_PROXY"] = "localhost,127.0.0.1,0.0.0.0";
 
-import fetch from "node-fetch-with-proxy";
+import _fetch from "node-fetch-with-proxy";
+import fs from "fs";
+import path from "path";
+import { RequestLimiter } from "./RequestLimiter";
+
+const resp_sample0 = {
+  id: "chatcmpl-i3j8ovy7xwd2a6d5rhkcx1",
+  object: "chat.completion",
+  created: 1732720421,
+  model: "c4ai-command-r-08-2024",
+  choices: [
+    {
+      index: 0,
+      message: {
+        role: "assistant",
+        content: "测试成功。",
+      },
+      logprobs: null,
+      finish_reason: "stop",
+    },
+  ],
+  usage: {
+    prompt_tokens: 22,
+    completion_tokens: 3,
+    total_tokens: 25,
+  },
+  system_fingerprint: "c4ai-command-r-08-2024",
+};
+type ResponseData = typeof resp_sample0;
 
 interface IModelConfig {
   model: string;
-  temperature: number;
-  top_k: number;
 
   BASE_URL: string;
   API_KEY?: string;
+
+  support_schema?: boolean;
+
+  // 请求频率限制
+  request_limit?: {
+    rps?: number; // requests per second
+    rpm?: number; // requests per minute
+    rph?: number; // requests per hour
+    rpd?: number; // requests per day
+  };
 }
 
+type ModelParams = {
+  temperature?: number;
+  max_tokens?: number;
+  top_k?: number;
+  top_p?: number;
+  presence_penalty?: number;
+  frequency_penalty?: number;
+  stop?: string[];
+};
+
 export class Model {
+  static createFromFile(filepath: string) {
+    const config = JSON.parse(fs.readFileSync(filepath, "utf-8"));
+
+    // BASE_URL 和 API_KEY 可以来自 env
+    if (typeof config.BASE_URL === "object") {
+      const { from_env } = config.BASE_URL;
+
+      if (from_env && process.env[from_env]) {
+        config.BASE_URL = process.env[from_env];
+      } else {
+        throw new Error("Cannot find BASE_URL from env");
+      }
+    }
+    if (typeof config.API_KEY === "object") {
+      const { from_env } = config.API_KEY;
+
+      if (from_env && process.env[from_env]) {
+        config.API_KEY = process.env[from_env];
+      } else {
+        throw new Error("Cannot find API_KEY from env");
+      }
+    }
+
+    return new Model(config);
+  }
+
   config: IModelConfig;
 
-  support_schema = true;
+  limiter?: RequestLimiter;
 
   constructor(config: Partial<IModelConfig> = {}) {
     this.config = {
       model: "chatgpt-3.5",
-      temperature: 1,
-      top_k: 40,
       BASE_URL: "https://api.openai.com",
       ...config,
+      support_schema: config.support_schema ?? true,
     };
+    if (config.request_limit) {
+      this.limiter = new RequestLimiter(config.request_limit);
+    }
   }
+
+  fetch: typeof globalThis.fetch = _fetch;
 
   get BASE_URL() {
     return this.config.BASE_URL;
@@ -33,19 +109,38 @@ export class Model {
     return this.config.API_KEY;
   }
 
-  async completion({
+  async completion(params: {
+    prompt: string;
+    max_tokens?: number;
+    params?: ModelParams;
+  }): Promise<string> {
+    await this.limiter?.start();
+    try {
+      return await this._completion(params);
+    } finally {
+      await this.limiter?.end();
+    }
+  }
+
+  private async _completion({
     prompt,
     max_tokens = 6,
+    params,
   }: {
     prompt: string;
     max_tokens?: number;
+    params?: ModelParams;
   }): Promise<string> {
     const { BASE_URL } = this;
-    const resp = await fetch(`${BASE_URL}/v1/completions`, {
+    const resp = await this.fetch(`${BASE_URL}/v1/completions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: this.API_KEY ? `Bearer ${this.API_KEY}` : "sk-xxx",
+      },
       body: JSON.stringify({
-        ...this.config,
+        model: this.config.model,
+        ...params,
         max_tokens,
         prompt,
       }),
@@ -55,7 +150,26 @@ export class Model {
     return json.choices[0].text;
   }
 
-  async chat_completion({
+  async chat_completion(params: {
+    prompt: string;
+    system_prompt?: string;
+    jsonschema?: any;
+    history?: {
+      role: "user" | "assistant";
+      content: string;
+    }[];
+    config?: ModelParams;
+    callback?: (text: string, data: ResponseData, resp: Response) => void;
+  }): Promise<string> {
+    await this.limiter?.start();
+    try {
+      return await this._chat_completion(params);
+    } finally {
+      await this.limiter?.end();
+    }
+  }
+
+  private async _chat_completion({
     prompt,
     system_prompt = "",
     jsonschema = null,
@@ -63,6 +177,7 @@ export class Model {
     config = {
       max_tokens: 64,
     },
+    callback,
   }: {
     prompt: string;
     system_prompt?: string;
@@ -80,25 +195,24 @@ export class Model {
       frequency_penalty?: number;
       stop?: string[];
     };
+    callback?: (text: string, data: ResponseData, resp: Response) => void;
   }): Promise<string> {
     const { BASE_URL } = this;
-    const resp = await fetch(`${BASE_URL}/v1/chat/completions`, {
+    const resp = await this.fetch(`${BASE_URL}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        // Authorization: this.API_KEY ? `Bearer ${this.API_KEY}` : "sk-xxx",
+        Authorization: this.API_KEY ? `Bearer ${this.API_KEY}` : "sk-xxx",
       },
       body: JSON.stringify({
-        ...this.config,
+        model: this.config.model,
         ...config,
-        BASE_URL: undefined,
-        API_KEY: undefined,
         messages: [
           system_prompt ? { role: "system", content: system_prompt } : null,
           ...(history || []),
           { role: "user", content: prompt },
         ].filter(Boolean),
-        ...(jsonschema && this.support_schema
+        ...(jsonschema && this.config.support_schema
           ? {
               response_format: {
                 type: "json_schema",
@@ -126,6 +240,8 @@ export class Model {
         typeof json.error === "string" ? json.error : JSON.stringify(json.error)
       );
     }
-    return json.choices[0].message.content;
+    const text = json.choices[0].message.content;
+    callback?.(text, json, resp);
+    return text;
   }
 }

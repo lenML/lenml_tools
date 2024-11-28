@@ -24,7 +24,16 @@ export class CompletionEvaluator extends BaseEvaluator<Item> {
 
     for (let i = 0; i < testcases.length; i++) {
       const q = testcases[i];
-      const response = await this.model.completion({ prompt: q.question });
+      const response = await this.model.completion({
+        prompt: q.question,
+        params: {
+          temperature: 1,
+          max_tokens: 5,
+          top_p: 0.2,
+          presence_penalty: 0.4,
+          frequency_penalty: 0.4,
+        },
+      });
       const pass = await this.judger.judge(q, response);
 
       results.push({

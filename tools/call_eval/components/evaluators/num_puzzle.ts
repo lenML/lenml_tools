@@ -6,15 +6,31 @@ import { Model } from "../model";
 type Item = { target: number };
 
 const start_prompt = `
-我们来玩一个游戏，这个游戏叫做猜数字。
-规则：我有一个数字不能直接说出来，你通过每轮猜测的形式确定这个数字是多少。我只能回答你"大了"还是"小了"或者"正确"。
-- 小了：表示你猜测的数字小于目标数字
-- 大了：表示你猜测的数字大于目标数字
-- 正确：即游戏胜利猜测正确
+我们来玩一个猜数字的游戏。
+规则如下：
+1. 我心里有一个秘密数字，你需要通过每轮猜测来找出这个数字。
+2. 每次你猜一个数字后，我会根据以下规则回答：
+   - **"小了"**：表示你的猜测数字比目标数字小。
+   - **"大了"**：表示你的猜测数字比目标数字大。
 
-现在，游戏开始：
-这个数字范围在{{ min_num }}到{{ max_num }}之间的整数。
+你应该根据上下文回复一个 JSON 格式的数据，用于表明你的思考，以及你猜测的数字。
+JSON数据的中应该包含：
+- explanation: 你的思考
+- guess: 你猜测的数字
+
+游戏开始：
+目标数字是一个位于 **{{ min_num }}** 到 **{{ max_num }}** 范围内的整数。
+现在，请输入你的第一个猜测！
 `;
+const jsonschema0 = {
+  type: "object",
+  properties: {
+    explanation: { type: "string" },
+    guess: { type: "number" },
+  },
+  required: ["explanation", "guess"],
+  additionalProperties: false,
+};
 
 function trendScore(numbers: number[]) {
   if (numbers.length < 2) {
@@ -44,9 +60,11 @@ function trendScore(numbers: number[]) {
       normalized.length;
     volatility = Math.min(1, variance);
   }
+  // 引入长度因子：值域 [0.5, 1]
+  const lengthFactor = 0.5 + 0.5 * (1 / Math.sqrt(numbers.length));
 
   // 最终得分
-  const finalScore = descentRatio * (1 - volatility * 0.5);
+  const finalScore = descentRatio * (1 - volatility * 0.5) * lengthFactor;
 
   return finalScore;
 }
@@ -67,7 +85,7 @@ export class NumPuzzleEvaluator extends BaseEvaluator<Item> {
   async evaluate(testcases: Item[]) {
     const results = [] as {
       target: number;
-      messages: any;
+      turn_messages: any[];
       score: number;
       pass: boolean;
       guesses: number[];
@@ -78,7 +96,7 @@ export class NumPuzzleEvaluator extends BaseEvaluator<Item> {
     for (let i = 0; i < testcases.length; i++) {
       const q = testcases[i];
       const response = await this.one_game(q);
-      const { pass, messages, guesses } = response;
+      const { pass, turn_messages, guesses } = response;
       yes += pass ? 1 : 0;
 
       const diffs = guesses.map((x) => Math.abs(x - q.target));
@@ -89,15 +107,18 @@ export class NumPuzzleEvaluator extends BaseEvaluator<Item> {
         score,
         pass,
         guesses,
-        messages,
+        turn_messages,
       });
 
       this.logProgress(i, testcases.length, q, score, pass);
     }
 
+    const accuracy = mean(results.map((x) => x.score));
+
     return {
+      score: accuracy * 100,
+      accuracy,
       results,
-      accuracy: mean(results.map((x) => x.score)),
     };
   }
 
@@ -106,36 +127,79 @@ export class NumPuzzleEvaluator extends BaseEvaluator<Item> {
     const { target } = item;
 
     const guesses = [] as number[];
-    const messages = [] as {
-      role: "user" | "assistant";
-      content: any;
-      guess?: number;
+    const turn_messages = [] as {
+      user: {
+        content: string;
+      };
+      assistant: {
+        content: string;
+        explanation: string;
+        guess: number;
+      };
     }[];
     const send_to_player = async (text: string) => {
       const response = await this.model.chat_completion({
         prompt: text,
-        history: messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
+        history: [
+          ...turn_messages
+            .map((m) => {
+              return [
+                {
+                  role: "user",
+                  content: m.user.content,
+                },
+                {
+                  role: "assistant",
+                  content: `我猜数字是: ${m.assistant.guess}`,
+                },
+              ];
+            })
+            .flat(),
+          {
+            role: "user",
+            content: text,
+          },
+        ] as any[],
         system_prompt: this.system_prompt,
+        jsonschema: jsonschema0,
         config: {
           max_tokens: 4096,
+          temperature: 0.2,
         },
       });
-      const guess = Number(response.match(/\d+/)?.reverse()[0]);
-      messages.push({
-        role: "user",
-        content: text,
+      let { guess, explanation } = this.parse_json(response, {
+        guess: 0,
+        explanation: "[ERROR]",
       });
-      messages.push({
-        role: "assistant",
-        content: response,
-        guess: guess,
+      if (explanation === "[ERROR]") {
+        // 尝试从 response 中找到数字
+        const match = response.match(/\d+/);
+        if (match) {
+          try {
+            const n = parseInt(match[0]);
+            if (Number.isFinite(n)) {
+              guess = n;
+            }
+          } catch (error) {
+            // pass
+          }
+          // explanation = "";
+        }
+      }
+
+      turn_messages.push({
+        user: {
+          content: text,
+        },
+        assistant: {
+          content: response,
+          explanation,
+          guess,
+        },
       });
       console.log(
-        (messages.length / 2).toString().padStart(2, "0"),
-        `P> ${response.trim()}\nG> ${guess} | ${guess - target}`
+        turn_messages.length.toString().padStart(2, "0"),
+        `P> ${explanation.trim()}\nG> ${guess} | ${guess - target}`
       );
       guesses.push(guess);
       return {
@@ -158,7 +222,7 @@ export class NumPuzzleEvaluator extends BaseEvaluator<Item> {
       }
       if (last_turn.guess === target) {
         return {
-          messages,
+          turn_messages,
           pass: true,
           guesses,
         };
@@ -174,7 +238,7 @@ export class NumPuzzleEvaluator extends BaseEvaluator<Item> {
       }
     }
     return {
-      messages,
+      turn_messages,
       pass: false,
       guesses,
     };

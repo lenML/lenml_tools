@@ -170,6 +170,7 @@ export class SoupPuzzleEvaluator extends BaseEvaluator<Item> {
         })),
         config: {
           max_tokens: 4096,
+          temperature: 0.75,
         },
       });
       messages.push({

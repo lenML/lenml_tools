@@ -1,9 +1,12 @@
+import "./preload";
+
 import fs from "fs";
 import path from "path";
 
 import { Model } from "./components/model";
 import { SimpleQAEvaluator } from "./components/evaluators/simple_qa";
 import { SoupPuzzleEvaluator } from "./components/evaluators/soup_puzzle";
+import { current_model, program_options } from "./args";
 
 const BASE_URL = "http://127.0.0.1:1234";
 
@@ -15,22 +18,16 @@ const soup_puzzle_testcases = JSON.parse(
 );
 
 async function main() {
-  const [model_name] = process.argv.slice(2);
-  if (!model_name) {
-    // 就是保存结果的时候用
-    throw new Error("model name is required");
-  }
-
-  const model = new Model({
-    BASE_URL,
-    temperature: 0.75,
-  });
+  const model = current_model;
   const evaluator = new SoupPuzzleEvaluator(model);
 
   const result = await evaluator.evaluate(soup_puzzle_testcases.slice(0, 1));
 
   fs.writeFileSync(
-    path.resolve(__dirname, `./results/soup_puzzle/${model_name}.json`),
+    path.resolve(
+      __dirname,
+      `./results/soup_puzzle/${program_options.name}.json`
+    ),
     JSON.stringify(result, null, 2)
   );
   console.log(`Final score: ${result.accuracy}`);

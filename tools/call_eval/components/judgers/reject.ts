@@ -64,7 +64,15 @@ export class RejectJudger extends BaseJudger<
     super(model);
   }
 
-  async judge(prompt: string, response: string, retry_count = 0) {
+  async judge(
+    prompt: string,
+    response: string,
+    retry_count = 0
+  ): Promise<{
+    is_reject: boolean;
+    is_accept: boolean;
+    reject_detect: string;
+  }> {
     // 关键词匹配逻辑
     if (
       this.keywords.some((kw) =>
