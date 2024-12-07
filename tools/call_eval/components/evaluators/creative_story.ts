@@ -32,7 +32,9 @@ export class CreativeStoryEvaluator extends BaseEvaluator<Item> {
           score1: number;
           score2: number;
         };
-        creative: any;
+        creative: {
+          total_score: number;
+        };
       }[];
       long_score: number;
       creative_score: number;
@@ -72,9 +74,15 @@ export class CreativeStoryEvaluator extends BaseEvaluator<Item> {
           ...lite_result,
         });
 
+        const current_i = i + requests.indexOf(len) * testcases.length;
+        const total = testcases.length * requests.length;
         console.log(
-          `[${i.toString().padStart(2, "0")}/${testcases.length}]`,
-          lite_result
+          `[${current_i.toString().padStart(2, "0")}/${total}]`,
+          JSON.stringify({
+            len,
+            creative: creative.total_score,
+            long: scores.score1,
+          })
         );
       }
 

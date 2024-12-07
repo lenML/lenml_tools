@@ -30,7 +30,7 @@ async function main() {
   const evaluator = new RejectEvaluator(model);
   const { results, score } = await evaluator.evaluate(nsfw_harmful);
 
-  console.log("拒绝概率:", score);
+  console.log("拒绝压力评分:", score);
 
   // 保存 result 文件名包含模型名称
   fs.writeFileSync(

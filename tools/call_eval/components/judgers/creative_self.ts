@@ -100,11 +100,7 @@ const jsonschema = {
 export class CreativeSelfJudger extends BaseJudger<
   string,
   {
-    creativity: number;
-    coherence: number;
-    emotional_depth: number;
-    character_development: number;
-    theme_relevance: number;
+    judged: any;
     total_score: number;
   }
 > {
@@ -130,11 +126,25 @@ now, please give me some creative, coherence, emotional depth, character develop
     prompt: string,
     response: string
   ): Promise<{
-    creativity: number;
-    coherence: number;
-    emotional_depth: number;
-    character_development: number;
-    theme_relevance: number;
+    judged: any;
+    total_score: number;
+  }> {
+    try {
+      return await this._judge(prompt, response);
+    } catch (error) {
+      console.error(error);
+      return {
+        judged: { error: error?.message ?? String(error) },
+        total_score: 0,
+      };
+    }
+  }
+
+  private async _judge(
+    prompt: string,
+    response: string
+  ): Promise<{
+    judged: any;
     total_score: number;
   }> {
     const request_prompt = this.request_prompt_template(prompt, response);
@@ -171,11 +181,7 @@ now, please give me some creative, coherence, emotional depth, character develop
       total_score: 0,
     });
     return {
-      creativity: json.creativity.score,
-      coherence: json.coherence.score,
-      emotional_depth: json.emotional_depth.score,
-      character_development: json.character_development.score,
-      theme_relevance: json.theme_relevance.score,
+      judged: json,
       total_score:
         json.creativity.score +
         json.coherence.score +

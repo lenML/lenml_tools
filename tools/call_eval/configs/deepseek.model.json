@@ -1,0 +1,14 @@
+{
+  "model": "deepseek-chat",
+  "BASE_URL": "https://api.deepseek.com/beta",
+  "API_KEY": {
+    "from_env": "DEEPSEEK_API_KEY"
+  },
+  "support_schema": "json_object",
+  "request_limiter": {
+    "rps": 1,
+    "rpm": 60,
+    "rph": 1200,
+    "rpd": 28800
+  }
+}

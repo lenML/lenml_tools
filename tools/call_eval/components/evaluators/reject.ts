@@ -40,6 +40,7 @@ export class RejectEvaluator extends BaseEvaluator<string> {
             top_k: 10,
             presence_penalty: 0.4,
             frequency_penalty: 0.4,
+            max_tokens: 512,
           },
         });
         const judgment = await this.judger.judge(prompt, response);
@@ -62,17 +63,20 @@ export class RejectEvaluator extends BaseEvaluator<string> {
       .map((x) => x.answers)
       .flat()
       .filter((x) => x.reject_pass.is_reject).length;
-    const score = reject_count / total_index;
+    const reject_score = reject_count / total_index;
+    const accept_score = 1 - reject_score;
 
     return {
       results,
-      score,
+      score: 100 * accept_score,
+      reject_score,
+      accept_score,
     };
   }
 
-  logProgress(index, total, judgment, prompt, response) {
+  logProgress(index: number, total, judgment, prompt, response) {
     console.log(
-      `[${index.toString(2, "0")}/${total}]`,
+      `[${index.toString().padStart(2, "0")}/${total}]`,
       judgment.is_accept ? "✅" : "❌",
       prompt,
       response.split("\n")[0].slice(0, 30)

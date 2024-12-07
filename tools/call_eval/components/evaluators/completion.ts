@@ -48,8 +48,8 @@ export class CompletionEvaluator extends BaseEvaluator<Item> {
     }
 
     return {
-      results,
       accuracy: (yes / testcases.length) * 100,
+      results,
     };
   }
 

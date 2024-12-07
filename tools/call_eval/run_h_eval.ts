@@ -1,6 +1,4 @@
 // 一个极其简单的 eval 脚本，通过调用 `/v1/completions` 接口来测评续写能力
-process.env["NO_PROXY"] = "localhost,127.0.0.1,0.0.0.0";
-
 import fs from "fs";
 import path from "path";
 import { current_model, program_options } from "./args";
