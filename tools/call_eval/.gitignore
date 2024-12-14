@@ -4,3 +4,5 @@ result_*.json
 
 results/**/*.json
 datasets/**/*.json
+
+smut_keywords.txt

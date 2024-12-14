@@ -32,15 +32,15 @@ const jsonschema0 = {
   additionalProperties: false,
 };
 
-function trendScore(numbers: number[]) {
-  if (numbers.length < 2) {
+function trendScore(diffs: number[]) {
+  if (diffs.length < 2) {
     return 1.0;
   }
 
   // 计算相邻点变化
   const changes = [] as number[];
-  for (let i = 0; i < numbers.length - 1; i++) {
-    changes.push(numbers[i + 1] - numbers[i]);
+  for (let i = 0; i < diffs.length - 1; i++) {
+    changes.push(diffs[i + 1] - diffs[i]);
   }
 
   // 计算下降点比例
@@ -48,12 +48,12 @@ function trendScore(numbers: number[]) {
   const descentRatio = descentCount / changes.length;
 
   // 计算波动性
-  const maxVal = Math.max(...numbers);
-  const minVal = Math.min(...numbers);
+  const maxVal = Math.max(...diffs);
+  const minVal = Math.min(...diffs);
 
   let volatility = 0;
   if (maxVal !== minVal) {
-    const normalized = numbers.map((x) => (x - minVal) / (maxVal - minVal));
+    const normalized = diffs.map((x) => (x - minVal) / (maxVal - minVal));
     const mean = normalized.reduce((a, b) => a + b) / normalized.length;
     const variance =
       normalized.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) /
@@ -61,7 +61,7 @@ function trendScore(numbers: number[]) {
     volatility = Math.min(1, variance);
   }
   // 引入长度因子：值域 [0.5, 1]
-  const lengthFactor = 0.5 + 0.5 * (1 / Math.sqrt(numbers.length));
+  const lengthFactor = 0.5 + 0.5 * (1 / Math.sqrt(diffs.length));
 
   // 最终得分
   const finalScore = descentRatio * (1 - volatility * 0.5) * lengthFactor;
