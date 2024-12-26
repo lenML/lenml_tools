@@ -11,13 +11,19 @@ program
   // --model 模型配置的文件地址
   .option("--model <string>", "模型配置的文件地址")
   // --name 报告文件的保存名
-  .option("--name [string]", "报告文件的保存名", "no-name");
+  .option("--name [string]", "报告文件的保存名", "no-name")
+  .option(
+    "--model_name [string]",
+    "模型名称参数，传递会覆盖配置文件中的model",
+    ""
+  );
 
 program.parse();
 
 export const program_options = program.opts() as {
   model: string;
   name: string;
+  model_name: string;
 };
 
 if (!fs.existsSync(program_options.model)) {
@@ -26,3 +32,7 @@ if (!fs.existsSync(program_options.model)) {
 }
 
 export const current_model = Model.createFromFile(program_options.model);
+if (program_options.model_name) {
+  console.log(`[args]覆盖模型名称为 ${program_options.model_name}`);
+  current_model.config.model = program_options.model_name;
+}

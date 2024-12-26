@@ -4,7 +4,7 @@ set -e
 # MODEL_CONFIG=./configs/grok-beta.model.json
 MODEL_CONFIG=./configs/llm-studio-any.model.json
 # MODEL_CONFIG=./configs/deepseek.model.json
-MODEL_NAME=star-command-r-32b-v1
+MODEL_NAME=gemma-2-ifable-9b
 
 npx tsx ./run_h_eval.ts --model $MODEL_CONFIG --name $MODEL_NAME
 

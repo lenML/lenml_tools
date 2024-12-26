@@ -1,0 +1,5 @@
+{
+  "model": "gpt-3.5",
+  "BASE_URL": "http://127.0.0.1:4567",
+  "API_KEY": "sk-xxx"
+}
