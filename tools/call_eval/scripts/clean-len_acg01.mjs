@@ -8,6 +8,21 @@ const data = JSON.parse(
 
 /**
  *
+ * @param {string} str
+ * @returns {string}
+ */
+function decodeHtmlEntities(str) {
+  return str
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(code))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+/**
+ *
  * @param {string} text
  */
 const parseOptions = (text) => {
@@ -27,7 +42,7 @@ const parseOptions = (text) => {
     }
   }
 
-  return options;
+  return options.map(decodeURIComponent).map(decodeHtmlEntities);
 
   /**
    *
